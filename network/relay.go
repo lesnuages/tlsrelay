@@ -20,19 +20,15 @@ import (
 )
 
 const (
-	ERR_COULD_NOT_DECODE    = 1 << iota
-	ERR_HOST_UNREACHABLE    = iota
-	ERR_BAD_FINGERPRINT     = iota
-	ERR_KEY_GENERATION      = iota
+	ERR_KEY_GENERATION      = 1 << iota
 	ERR_RAND_GENERATION     = iota
 	ERR_CERT_CREATION       = iota
 	ERR_MARSHAL_PRIVATE_KEY = iota
 	ERR_X509_KEYPAIR        = iota
-	ERR_LISTEN_FAILED       = iota
 )
 
 type TlsRelay struct {
-	Remote net.Conn
+	Remote tls.Conn
 	Lport  int
 }
 
@@ -84,6 +80,14 @@ func GenerateCert(orgName string) tls.Certificate {
 	return certificate
 }
 
+// NewRelay is used to create a new TlsRelay instance.
+func NewRelay(port int) *TlsRelay {
+	return &TlsRelay{Lport: port}
+}
+
+// RelayStreams takes a net.Conn object and
+// copy all data read from it to the TlsRelay.Remote connection.
+// It also prints the copied data to stdout using fmt.Printf.
 func (relay *TlsRelay) RelayStreams(conn net.Conn) {
 	reader := io.TeeReader(conn, relay.Remote)
 	printall := func(r io.Reader) {
@@ -92,18 +96,15 @@ func (relay *TlsRelay) RelayStreams(conn net.Conn) {
 			log.Println(err)
 			return
 		}
-		fmt.Printf("% x", b)
+		fmt.Printf("% x\n", b)
 	}
-}
-
-// NewRelay is used to create a new TlsRelay instance.
-func NewRelay(port int) *TlsRelay {
-	return &TlsRelay{Lport: port}
+	printall(conn)
 }
 
 // Listen starts the listening server
-func (relay *TlsRelay) Listen(orgName string) {
-	cert := GenerateCert(orgName)
+func (relay *TlsRelay) Listen() {
+	relay.Remote.PeerCertificates
+	cert := GenerateCert("FakeOrg")
 	config := &tls.Config{Certificates: []tls.Certificate{cert}}
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(relay.Lport), config)
 	if err != nil {
